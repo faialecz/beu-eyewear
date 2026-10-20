@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireUser } from '@/lib/auth/session';
+import { MAX_SAVED_ADDRESSES } from '@/lib/checkout/address';
 import { calcTotals } from '@/lib/checkout/pricing';
 import type { PlaceOrderState } from '@/lib/checkout/types';
 import { prisma } from '@/lib/prisma';
@@ -153,10 +154,18 @@ export async function placeOrder(_prevState: PlaceOrderState, formData: FormData
     try {
       const { fullName, address: street, city, province, zip, phone } = address;
       const fields = { fullName, address: street, city, province, zip, phone };
-      await prisma.savedAddress.upsert({
-        where: { userId: user.id },
-        create: { userId: user.id, ...fields },
-        update: fields,
+      await prisma.$transaction(async (tx) => {
+        const saved = await tx.savedAddress.findMany({
+          where: { userId: user.id },
+          select: { fullName: true, address: true, city: true, province: true, zip: true, phone: true },
+        });
+        if (saved.length >= MAX_SAVED_ADDRESSES) return;
+        // Ordering the same address twice shouldn't fill the address book.
+        if (saved.some((existing) => TEXT_FIELDS.every((key) => existing[key] === fields[key]))) return;
+
+        await tx.savedAddress.create({
+          data: { userId: user.id, ...fields, isDefault: saved.length === 0 },
+        });
       });
       revalidatePath('/account/addresses');
     } catch (error) {

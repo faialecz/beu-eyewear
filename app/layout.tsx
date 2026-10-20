@@ -23,6 +23,19 @@ const THEME_INIT_SCRIPT = `
 })();
 `;
 
+// A plain <script> in a component makes React warn in development. Marking it
+// text/plain on the client (where it never runs anyway) avoids that; the
+// server-rendered text/javascript copy is what the browser executes.
+function InlineScript({ html }: { html: string }) {
+  return (
+    <script
+      type={typeof window === "undefined" ? "text/javascript" : "text/plain"}
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -31,7 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <InlineScript html={THEME_INIT_SCRIPT} />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

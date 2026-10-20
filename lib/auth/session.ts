@@ -14,6 +14,7 @@ export interface CurrentUser {
   name: string;
   email: string;
   role: 'CUSTOMER' | 'ADMIN';
+  emailVerifiedAt: Date | null;
 }
 
 // Only the hash is stored, so a leaked database can't be replayed as cookies.
@@ -47,6 +48,16 @@ export async function deleteSession() {
   cookieStore.delete(COOKIE_NAME);
 }
 
+// After a password change: sign out everywhere except the browser making the change.
+export async function deleteOtherSessions(userId: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+
+  await prisma.session.deleteMany({
+    where: { userId, ...(token ? { tokenHash: { not: hashToken(token) } } : {}) },
+  });
+}
+
 // Memoized per render pass so a page and its action/children share one lookup.
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const cookieStore = await cookies();
@@ -55,7 +66,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },
-    select: { id: true, expiresAt: true, user: { select: { id: true, name: true, email: true, role: true } } },
+    select: { id: true, expiresAt: true, user: { select: { id: true, name: true, email: true, role: true, emailVerifiedAt: true } } },
   });
   if (!session) return null;
 

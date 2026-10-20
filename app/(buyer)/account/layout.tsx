@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 const ACCOUNT_LINKS = [
   { href: '/account', label: 'Overview' },
+  { href: '/account/profile', label: 'Profile' },
   { href: '/account/orders', label: 'Orders' },
   { href: '/account/addresses', label: 'Addresses' },
   { href: '/account/wishlist', label: 'Wishlist' },

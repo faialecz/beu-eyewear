@@ -34,3 +34,9 @@ export function normalizePhone(value: string): string {
   const digits = value.replace(/\D/g, '');
   return /^63\d{10}$/.test(digits) ? `0${digits.slice(2)}` : digits;
 }
+
+// How many addresses one account can keep in the address book.
+export const MAX_SAVED_ADDRESSES = 5;
+
+// Optional nickname such as "Home" or "Office".
+export const ADDRESS_LABEL_MAX = 30;

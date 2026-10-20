@@ -20,9 +20,11 @@ type LoginFormProps = {
   onGuest?: () => void;
   /** Use h1 when this is the main content of the page (/login). */
   headingAs?: 'h1' | 'h2';
+  /** Shown under the heading, e.g. after a password reset. */
+  notice?: string;
 };
 
-export default function LoginForm({ next, onNavigate, onGuest, headingAs: Heading = 'h2' }: LoginFormProps) {
+export default function LoginForm({ next, onNavigate, onGuest, headingAs: Heading = 'h2', notice }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(login, initialState);
 
   return (
@@ -33,6 +35,11 @@ export default function LoginForm({ next, onNavigate, onGuest, headingAs: Headin
           Welcome Back
         </Heading>
         <p className="mt-1 text-[11px] text-muted-foreground">Please log in to your account.</p>
+        {notice && (
+          <p role="status" className="mt-3 text-xs text-green-600">
+            {notice}
+          </p>
+        )}
       </div>
 
       <form action={formAction} className="mt-6 flex flex-col">
@@ -58,8 +65,7 @@ export default function LoginForm({ next, onNavigate, onGuest, headingAs: Headin
         </div>
 
         <div className="mt-2 text-right">
-          {/* TODO: ikabit sa reset password page kapag meron na */}
-          <Link href="#" className="text-[11px] font-medium text-[#7B8FD6] hover:underline">
+          <Link href="/forgot-password" onClick={onNavigate} className="text-[11px] font-medium text-[#7B8FD6] hover:underline">
             Forgot password?
           </Link>
         </div>

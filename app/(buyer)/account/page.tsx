@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { Heart, MapPin, Package } from 'lucide-react';
+import { Heart, MailWarning, MapPin, Package, UserRound } from 'lucide-react';
 import { buttonClassName } from '@/component/Button';
 import { logout } from '@/lib/auth/actions';
 import { requireUser } from '@/lib/auth/session';
 
 const QUICK_LINKS = [
+  { href: '/account/profile', label: 'Profile', description: 'Edit details and change your password', icon: UserRound },
   { href: '/account/orders', label: 'Orders', description: 'Track and review past purchases', icon: Package },
   { href: '/account/addresses', label: 'Addresses', description: 'Manage your shipping addresses', icon: MapPin },
   { href: '/account/wishlist', label: 'Wishlist', description: 'Products you have saved', icon: Heart },
@@ -33,7 +34,17 @@ export default async function AccountPage() {
         </form>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {!user.emailVerifiedAt && (
+        <Link
+          href="/account/profile"
+          className="flex items-center gap-3 rounded-2xl border border-amber-400/60 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          <MailWarning size={18} aria-hidden="true" className="shrink-0" />
+          <span>Your email isn&apos;t verified yet. Verify it so you can recover your account.</span>
+        </Link>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {QUICK_LINKS.map(({ href, label, description, icon: Icon }) => (
           <Link
             key={href}

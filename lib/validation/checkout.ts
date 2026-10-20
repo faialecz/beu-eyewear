@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ADDRESS_LIMITS, normalizePhone } from '@/lib/checkout/address';
+import { ADDRESS_LABEL_MAX, ADDRESS_LIMITS, normalizePhone } from '@/lib/checkout/address';
 import { PAYMENT_METHOD_IDS } from '@/lib/checkout/payment';
 import { SHIPPING_METHOD_IDS } from '@/lib/checkout/shipping';
 
@@ -24,6 +24,16 @@ export const addressSchema = z.object({
   province: requiredText('Enter your province', 'Province', ADDRESS_LIMITS.province),
   zip: z.string().trim().regex(/^\d{4}$/, 'Enter a 4-digit postal code'),
   phone,
+});
+
+// An address-book entry: the shipping fields plus a nickname and default flag.
+export const savedAddressSchema = addressSchema.extend({
+  label: z
+    .string()
+    .trim()
+    .max(ADDRESS_LABEL_MAX, `Label must be ${ADDRESS_LABEL_MAX} characters or fewer`)
+    .transform((value) => value || null),
+  isDefault: z.boolean(),
 });
 
 export const cartLineSchema = z.object({

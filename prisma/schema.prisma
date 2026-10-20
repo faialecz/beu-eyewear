@@ -83,25 +83,58 @@ model User {
   role         Role     @default(CUSTOMER)
   createdAt    DateTime @default(now())
 
-  sessions     Session[]
-  orders       Order[]
-  savedAddress SavedAddress?
+  // Set once the user confirms the link we email them (or resets their password).
+  emailVerifiedAt DateTime?
+
+  sessions       Session[]
+  orders         Order[]
+  savedAddresses SavedAddress[]
+  authTokens     AuthToken[]
 }
 
-// One per user: saving again overwrites it. Field lengths are enforced in the
-// app (lib/checkout/address.ts), same as the Order address snapshot.
+enum AuthTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+// Single-use emailed links. Like Session, only the SHA-256 of the token is
+// stored, so a leaked database can't be replayed as working links.
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String
+  type      AuthTokenType
+  tokenHash String        @unique
+  // EMAIL_VERIFY only: the address to switch to once confirmed (an email change).
+  newEmail  String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+// Several per user, at most one default (kept by the app, in a transaction).
+// Field lengths are enforced in the app (lib/checkout/address.ts), same as the
+// Order address snapshot.
 model SavedAddress {
   id        String   @id @default(cuid())
-  userId    String   @unique
+  userId    String
+  label     String?
+  isDefault Boolean  @default(false)
   fullName  String
   address   String
   city      String
   province  String
   zip       String
   phone     String
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Session {

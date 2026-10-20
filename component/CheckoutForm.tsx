@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Clock } from 'lucide-react';
 import { placeOrder } from '@/app/(buyer)/check-out/actions';
 import AccordionSection from '@/component/AccordionSection';
+import AddressFieldsInputs from '@/component/AddressFields';
 import { buttonClassName } from '@/component/Button';
-import TextField, { FieldLabel } from '@/component/FormField';
+import { FieldLabel } from '@/component/FormField';
 import ProductImage from '@/component/ProductImage';
 import { lineKey, removeCartLines, useCartLines } from '@/lib/cart';
 import { useResolvedCartItems } from '@/lib/cart-items';
-import { ADDRESS_LIMITS, digitsOnly, normalizePhone, type AddressFields } from '@/lib/checkout/address';
+import { MAX_SAVED_ADDRESSES, type AddressFields } from '@/lib/checkout/address';
 import { PAYMENT_METHOD_IDS, PAYMENT_METHOD_LABELS, type PaymentMethodId } from '@/lib/checkout/payment';
 import { calcTotals } from '@/lib/checkout/pricing';
 import {
@@ -20,6 +21,7 @@ import {
   deliveryEstimate,
   type ShippingMethodId,
 } from '@/lib/checkout/shipping';
+import type { SavedAddressRecord } from '@/lib/checkout/saved-address';
 import type { PlaceOrderState } from '@/lib/checkout/types';
 import { formatPrice } from '@/lib/format';
 
@@ -39,20 +41,29 @@ function CardField({ id, label }: { id: string; label: string }) {
 
 interface CheckoutFormProps {
   defaultName: string;
-  // The buyer's saved address, if they have one. Prefills the form.
-  savedAddress: AddressFields | null;
+  // The buyer's address book, default first. The default prefills the form.
+  savedAddresses: SavedAddressRecord[];
   // Cart line keys (slug::color) chosen on the cart page. Without them,
   // checkout covers the whole cart.
   selectedKeys?: string[];
 }
 
-export default function CheckoutForm({ defaultName, savedAddress, selectedKeys }: CheckoutFormProps) {
+// Value of the "Ship to" select for typing in an address by hand.
+const NEW_ADDRESS = '';
+
+export default function CheckoutForm({ defaultName, savedAddresses, selectedKeys }: CheckoutFormProps) {
   const router = useRouter();
   const cartLines = useCartLines();
   const [shippingMethod, setShippingMethod] = useState<ShippingMethodId>('STANDARD');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('CARD');
   const [promoCode, setPromoCode] = useState('');
   const [placed, setPlaced] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState(
+    savedAddresses.find((address) => address.isDefault)?.id ?? NEW_ADDRESS,
+  );
+  // The action state at the moment the buyer switched address. Until the next
+  // submit, that switch wins over the values echoed back from the last one.
+  const [switchedAt, setSwitchedAt] = useState<PlaceOrderState | null>(null);
 
   const lines = selectedKeys
     ? cartLines.filter((line) => selectedKeys.includes(lineKey(line.slug, line.color)))
@@ -81,12 +92,14 @@ export default function CheckoutForm({ defaultName, savedAddress, selectedKeys }
   const orderLines = JSON.stringify(items.map(({ slug, color, quantity }) => ({ slug, color, quantity })));
 
   const fieldErrors = state.fieldErrors ?? {};
-  // Prefill: what was just submitted (after an error), else the saved address.
-  const values: Partial<Record<keyof AddressFields, string>> = state.values ?? savedAddress ?? {};
-  // Ticked by default only when nothing is saved yet. Once an address is saved
-  // it starts unticked, so editing the form for a one-off order doesn't silently
-  // overwrite it. After an error, keep whatever the buyer chose.
-  const saveAddressChecked = state.values ? state.values.saveAddress === 'on' : !savedAddress;
+  // Prefill: what was just submitted (after an error), else the chosen saved address.
+  const selectedAddress = savedAddresses.find((address) => address.id === selectedAddressId);
+  const values: Partial<Record<keyof AddressFields, string>> =
+    state.values && switchedAt !== state ? state.values : (selectedAddress ?? { fullName: defaultName });
+  const canSaveAddress = !selectedAddress && savedAddresses.length < MAX_SAVED_ADDRESSES;
+  // Ticked by default only when the address book is empty, so a one-off address
+  // isn't added to it silently. After an error, keep whatever the buyer chose.
+  const saveAddressChecked = state.values ? state.values.saveAddress === 'on' : savedAddresses.length === 0;
   const generalError = state.error ?? fieldErrors.lines?.[0];
   const canSubmit = ready && items.length > 0 && !pending;
 
@@ -221,87 +234,51 @@ export default function CheckoutForm({ defaultName, savedAddress, selectedKeys }
             <p className="text-sm font-bold uppercase tracking-wide">Shipping Address</p>
           </div>
           <div className="mt-6 flex flex-col gap-4">
-            <TextField
-              id="fullName"
-              label="Full Name"
-              autoComplete="name"
-              maxLength={ADDRESS_LIMITS.fullName}
-              required
-              defaultValue={values.fullName ?? defaultName}
-              errors={fieldErrors.fullName}
-            />
-            <TextField
-              id="address"
-              label="Address"
-              autoComplete="street-address"
-              maxLength={ADDRESS_LIMITS.address}
-              required
-              defaultValue={values.address}
-              errors={fieldErrors.address}
-            />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <TextField
-                id="city"
-                label="City"
-                autoComplete="address-level2"
-                maxLength={ADDRESS_LIMITS.city}
-                required
-                defaultValue={values.city}
-                errors={fieldErrors.city}
-              />
-              <TextField
-                id="province"
-                label="Province"
-                autoComplete="address-level1"
-                maxLength={ADDRESS_LIMITS.province}
-                required
-                defaultValue={values.province}
-                errors={fieldErrors.province}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <TextField
-                id="zip"
-                label="Zip / Postal Code"
-                autoComplete="postal-code"
-                inputMode="numeric"
-                maxLength={ADDRESS_LIMITS.zip}
-                onInput={(e) => {
-                  e.currentTarget.value = digitsOnly(e.currentTarget.value, ADDRESS_LIMITS.zip);
-                }}
-                required
-                defaultValue={values.zip}
-                errors={fieldErrors.zip}
-              />
-              {/* No maxLength here on purpose: the browser would cut a pasted "0917 123 4567" to
-                  11 characters (9 digits) before the filter below could strip the spaces. */}
-              <TextField
-                id="phone"
-                label="Mobile Number"
-                type="tel"
-                autoComplete="tel"
-                inputMode="numeric"
-                placeholder="09171234567"
-                onInput={(e) => {
-                  e.currentTarget.value = normalizePhone(e.currentTarget.value).slice(0, ADDRESS_LIMITS.phone);
-                }}
-                required
-                defaultValue={values.phone}
-                errors={fieldErrors.phone}
-              />
-            </div>
+            {savedAddresses.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel htmlFor="savedAddress">Ship to</FieldLabel>
+                {/* No name: the chosen address is submitted through the fields below. */}
+                <select
+                  id="savedAddress"
+                  value={selectedAddressId}
+                  onChange={(e) => {
+                    setSelectedAddressId(e.target.value);
+                    setSwitchedAt(state);
+                  }}
+                  className="w-full rounded-lg bg-muted px-4 py-3 text-sm outline-none"
+                >
+                  {savedAddresses.map((address) => (
+                    <option key={address.id} value={address.id}>
+                      {address.label ?? address.fullName} — {address.address}, {address.city}
+                      {address.isDefault ? ' (default)' : ''}
+                    </option>
+                  ))}
+                  <option value={NEW_ADDRESS}>Enter a new address</option>
+                </select>
+                <Link href="/account/addresses" className="text-xs text-muted-foreground underline">
+                  Manage address book
+                </Link>
+              </div>
+            )}
 
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                // Remount when the default flips (e.g. after the address is removed in another tab).
-                key={String(saveAddressChecked)}
-                type="checkbox"
-                name="saveAddress"
-                defaultChecked={saveAddressChecked}
-                className="h-4 w-4 accent-foreground"
-              />
-              {savedAddress ? 'Update my saved address with these details' : 'Save this address for next time'}
-            </label>
+            {/* Remounts on a different choice so the inputs pick up its values. */}
+            <AddressFieldsInputs
+              key={`${selectedAddressId}:${switchedAt === state}`}
+              values={values}
+              errors={fieldErrors}
+            />
+
+            {canSaveAddress && (
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="saveAddress"
+                  defaultChecked={saveAddressChecked}
+                  className="h-4 w-4 accent-foreground"
+                />
+                Save this address for next time
+              </label>
+            )}
           </div>
         </div>
 
