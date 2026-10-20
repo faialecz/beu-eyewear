@@ -7,10 +7,10 @@ import { buttonClassName } from '@/component/Button';
 import { FRAME_MATERIALS, FRAME_SHAPES, LENS_OPTIONS } from '@/lib/catalog/enums';
 import type { ProductFormState } from '@/lib/catalog/form-state';
 import type { Category, Product, Subcategory } from '@/lib/catalog/types';
+import { ACCEPTED_IMAGE_TYPES, imageFileError } from '@/lib/storage/image-rules';
 
 const fieldClassName = 'mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm';
 const labelClassName = 'text-sm font-semibold';
-const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/avif';
 
 const initialState: ProductFormState = {};
 
@@ -43,10 +43,13 @@ export interface ProductFormProps {
 
 export default function ProductForm({ action, categories, subcategories, defaultValues, submitLabel }: ProductFormProps) {
   const [preview, setPreview] = useState<string | null>(null);
+  // Set when the chosen file is rejected in the browser, before any upload.
+  const [pickedFileError, setPickedFileError] = useState<string | null>(null);
   const [state, formAction, pending] = useActionState(async (prevState: ProductFormState, formData: FormData) => {
     const next = await action(prevState, formData);
     // A failed save clears the file input, so drop the stale preview with it.
     setPreview(null);
+    setPickedFileError(null);
     return next;
   }, initialState);
   const isEdit = Boolean(defaultValues);
@@ -334,10 +337,18 @@ export default function ProductForm({ action, categories, subcategories, default
               accept={ACCEPTED_IMAGE_TYPES}
               onChange={(event) => {
                 const file = event.target.files?.[0];
+                const problem = file ? imageFileError(file) : null;
+                setPickedFileError(problem);
+                if (problem) {
+                  // Don't submit a file the server would reject anyway.
+                  event.target.value = '';
+                  setPreview(null);
+                  return;
+                }
                 setPreview(file ? URL.createObjectURL(file) : null);
               }}
-              aria-invalid={Boolean(errors.image) || undefined}
-              aria-describedby={errors.image ? 'image-error' : undefined}
+              aria-invalid={Boolean(pickedFileError || errors.image) || undefined}
+              aria-describedby={pickedFileError || errors.image ? 'image-error' : undefined}
               className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-semibold"
             />
             <p className="text-xs text-muted-foreground">
@@ -357,7 +368,7 @@ export default function ProductForm({ action, categories, subcategories, default
             )}
           </div>
         </div>
-        <FieldError id="image" errors={errors.image} />
+        <FieldError id="image" errors={pickedFileError ? [pickedFileError] : errors.image} />
       </div>
 
       <p aria-live="polite" className="min-h-5 text-sm text-red-500">

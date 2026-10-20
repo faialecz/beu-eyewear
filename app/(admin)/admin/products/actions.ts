@@ -7,8 +7,19 @@ import { z } from 'zod';
 import { requireAdmin } from '@/lib/auth/session';
 import { PRODUCT_FORM_FIELDS, type ProductFormState } from '@/lib/catalog/form-state';
 import { prisma } from '@/lib/prisma';
-import { deleteProductImage, uploadProductImage, validateImageFile } from '@/lib/storage/product-image';
+import {
+  BlobNotConfiguredError,
+  deleteProductImage,
+  uploadProductImage,
+  validateImageFile,
+} from '@/lib/storage/product-image';
 import { createProductSchema, productFieldsSchema } from '@/lib/validation/product';
+
+function uploadErrorMessage(error: unknown) {
+  return error instanceof BlobNotConfiguredError
+    ? 'Photo uploads aren’t set up yet: BLOB_READ_WRITE_TOKEN is missing from .env.'
+    : 'We couldn’t upload the photo. Please try again.';
+}
 
 function readValues(formData: FormData): Record<string, string> {
   return Object.fromEntries(PRODUCT_FORM_FIELDS.map((key) => [key, String(formData.get(key) ?? '')]));
@@ -72,7 +83,7 @@ export async function createProduct(_prevState: ProductFormState, formData: Form
       imageUrl = await uploadProductImage(slug, image);
     } catch (error) {
       console.error('uploading product image failed', error);
-      return { values, error: 'We couldn’t upload the photo. Please try again.' };
+      return { values, error: uploadErrorMessage(error) };
     }
   }
 
@@ -129,7 +140,7 @@ export async function updateProduct(
       newImageUrl = await uploadProductImage(slug, image);
     } catch (error) {
       console.error('uploading product image failed', error);
-      return { values, error: 'We couldn’t upload the photo. Please try again.' };
+      return { values, error: uploadErrorMessage(error) };
     }
   }
   const imageUrl = newImageUrl ?? (removeImage ? null : existing.imageUrl);

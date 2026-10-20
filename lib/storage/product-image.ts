@@ -1,25 +1,27 @@
 import 'server-only';
 
 import { del, put } from '@vercel/blob';
+import { IMAGE_EXTENSIONS, imageFileError } from '@/lib/storage/image-rules';
 
-export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+export { MAX_IMAGE_BYTES } from '@/lib/storage/image-rules';
 
-const EXTENSIONS: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/avif': 'avif',
-};
+// Thrown when no Vercel Blob store is connected, so the admin can be told the
+// real reason instead of a generic "try again".
+export class BlobNotConfiguredError extends Error {
+  constructor() {
+    super('BLOB_READ_WRITE_TOKEN is not set');
+  }
+}
 
 // Returns an error message, or null when the file is acceptable.
 export function validateImageFile(file: File): string | null {
-  if (!(file.type in EXTENSIONS)) return 'Photo must be a JPG, PNG, WebP or AVIF image.';
-  if (file.size > MAX_IMAGE_BYTES) return 'Photo must be 4 MB or smaller.';
-  return null;
+  return imageFileError(file);
 }
 
 export async function uploadProductImage(slug: string, file: File): Promise<string> {
-  const blob = await put(`products/${slug}.${EXTENSIONS[file.type]}`, file, {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) throw new BlobNotConfiguredError();
+
+  const blob = await put(`products/${slug}.${IMAGE_EXTENSIONS[file.type]}`, file, {
     access: 'public',
     addRandomSuffix: true,
     contentType: file.type,

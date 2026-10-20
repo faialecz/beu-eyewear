@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, User, Heart, ShoppingBag } from "lucide-react";
+import { Menu, User, Heart, ShoppingBag, LayoutDashboard } from "lucide-react";
 import CartBadge from "@/component/CartBadge";
 import HeaderSearch from "@/component/HeaderSearch";
 import LoginModalTrigger from "@/component/LoginModalTrigger";
@@ -50,6 +50,11 @@ export default async function Header() {
 
       <div className="flex items-center justify-end gap-4">
         <HeaderSearch />
+        {user?.role === "ADMIN" && (
+          <Link href="/admin" aria-label="Admin">
+            <LayoutDashboard size={20} strokeWidth={1.5} />
+          </Link>
+        )}
         {user ? (
           <Link href="/account" aria-label="Account">
             <User size={20} strokeWidth={1.5} />
