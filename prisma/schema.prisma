@@ -170,7 +170,11 @@ model Order {
   shipZip      String
   shipPhone    String
 
-  createdAt DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  paidAt      DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
 
   user  User        @relation(fields: [userId], references: [id])
   items OrderItem[]

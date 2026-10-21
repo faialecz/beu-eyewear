@@ -24,7 +24,8 @@ function buildBreadcrumbs(pathname: string) {
   let href = '/admin';
   for (const segment of rest) {
     href += `/${segment}`;
-    crumbs.push({ label: prettifySegment(segment), href });
+    // Order and customer ids are cuids; "Orders › ckx9f2…" isn't a useful crumb.
+    crumbs.push({ label: /^c[a-z0-9]{20,}$/.test(segment) ? 'Details' : prettifySegment(segment), href });
   }
   return crumbs;
 }

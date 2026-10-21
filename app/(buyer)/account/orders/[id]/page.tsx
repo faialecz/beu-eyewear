@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
+import CancelOrderButton from '@/component/order/CancelOrderButton';
 import OrderStatusBadge from '@/component/order/OrderStatusBadge';
 import OrderStatusSteps from '@/component/order/OrderStatusSteps';
 import OrderSummaryCard from '@/component/order/OrderSummaryCard';
@@ -8,7 +9,9 @@ import ShippingInfoCard from '@/component/order/ShippingInfoCard';
 import { requireUser } from '@/lib/auth/session';
 import { formatOrderNumber } from '@/lib/format';
 import { getOrderForUser } from '@/lib/orders/queries';
+import { cancelBlockedReason, canCancel } from '@/lib/orders/rules';
 import { orderBucket } from '@/lib/orders/tabs';
+import { cancelMyOrder } from '../actions';
 
 export default async function OrderDetailPage(props: PageProps<'/account/orders/[id]'>) {
   const { id } = await props.params;
@@ -38,6 +41,11 @@ export default async function OrderDetailPage(props: PageProps<'/account/orders/
         <div className="flex flex-col gap-8 lg:col-span-2">
           <OrderStatusSteps status={order.status} />
           <ShippingInfoCard order={order} />
+          {canCancel(order) ? (
+            <CancelOrderButton action={cancelMyOrder.bind(null, order.id)} orderLabel={formatOrderNumber(order.number)} />
+          ) : (
+            cancelBlockedReason(order) && <p className="text-sm text-muted-foreground">{cancelBlockedReason(order)}</p>
+          )}
         </div>
         <OrderSummaryCard order={order} />
       </div>
