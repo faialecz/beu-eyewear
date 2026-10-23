@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "admin:create": "tsx --conditions=react-server prisma/create-admin.ts"
+    "admin:create": "tsx --conditions=react-server prisma/create-admin.ts",
+    "seed:sample-orders": "tsx --conditions=react-server prisma/seed-sample-orders.ts",
+    "seed:sample-orders:clear": "tsx --conditions=react-server prisma/clear-sample-orders.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
