@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/format';
 export default function SalesTrendChart({ data }: { data: DailySales[] }) {
   const id = useId();
   const [active, setActive] = useState(data.length - 1);
+  const [showTooltip, setShowTooltip] = useState(false);
   if (data.length === 0) return <p className="text-sm text-muted-foreground">No trend data available.</p>;
   const selected = data[Math.min(Math.max(active, 0), data.length - 1)];
   const width = 900, height = 300, left = 110, right = 65, top = 35, bottom = 55;
@@ -24,6 +25,7 @@ export default function SalesTrendChart({ data }: { data: DailySales[] }) {
         <span className="text-muted-foreground">┄ Orders (all statuses)</span>
       </div>
       <div className="mt-3 overflow-x-auto">
+        <div className="relative min-w-160">
         <svg viewBox={`0 0 ${width} ${height}`} className="min-w-160 w-full" role="group" aria-labelledby={`${id}-title`}>
           <title id={`${id}-title`}>Daily revenue and orders, last 30 Manila calendar days. Focus a day for details.</title>
           <text x={left} y={15} className="fill-foreground text-xs">Revenue (₱)</text>
@@ -43,13 +45,24 @@ export default function SalesTrendChart({ data }: { data: DailySales[] }) {
             {(index % 7 === 0 || index === data.length - 1) && <text x={x(index)} y={height - 25} textAnchor="middle" className="fill-muted-foreground text-xs">{row.date.slice(5)}</text>}
             <rect x={x(index) - plotWidth / data.length / 2} y={top} width={plotWidth / data.length} height={plotHeight} fill="transparent" tabIndex={0} role="button"
               aria-label={`${displaySalesDate(row.date)}: ${formatPrice(row.revenue)}, ${row.orders} orders`}
-              onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} onClick={() => setActive(index)}
-              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setActive(index); } }}
+              aria-describedby={showTooltip ? `${id}-tooltip` : undefined}
+              onMouseEnter={() => { setActive(index); setShowTooltip(true); }} onMouseLeave={() => setShowTooltip(false)}
+              onFocus={() => { setActive(index); setShowTooltip(true); }} onBlur={() => setShowTooltip(false)}
+              onClick={() => { setActive(index); setShowTooltip(true); }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setShowTooltip(false);
+                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setActive(index); setShowTooltip(true); }
+              }}
               className="cursor-crosshair focus:outline focus:outline-1 focus:outline-foreground" />
           </g>)}
           <line x1={x(Math.min(Math.max(active, 0), data.length - 1))} x2={x(Math.min(Math.max(active, 0), data.length - 1))} y1={top} y2={top + plotHeight} className="pointer-events-none stroke-muted-foreground" strokeDasharray="3 3" />
           <text x={left + plotWidth / 2} y={height - 3} textAnchor="middle" className="fill-muted-foreground text-xs">Date (Asia/Manila)</text>
         </svg>
+        {showTooltip && <div id={`${id}-tooltip`} role="tooltip" className="pointer-events-none absolute top-8 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-background px-3 py-2 text-xs shadow-sm"
+          style={{ left: `clamp(8rem, ${x(Math.min(Math.max(active, 0), data.length - 1)) / width * 100}%, calc(100% - 8rem))` }}>
+          <p className="font-semibold">{displaySalesDate(selected.date)}</p><p>Revenue: {formatPrice(selected.revenue)}</p><p>Orders: {selected.orders}</p>
+        </div>}
+        </div>
       </div>
       <p role="status" aria-live="polite" className="mt-2 rounded-lg bg-muted px-3 py-2 text-sm tabular-nums"><strong>{displaySalesDate(selected.date)}</strong> · Revenue {formatPrice(selected.revenue)} · {selected.orders} orders</p>
       {data.every((row) => row.orders === 0) && <p className="mt-3 text-sm text-muted-foreground">No orders in the last 30 days.</p>}
