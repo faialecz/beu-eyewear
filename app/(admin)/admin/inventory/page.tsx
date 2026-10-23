@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { buttonClassName } from '@/component/Button';
+import InventoryFilters from './InventoryFilters';
 import InventoryStockBadge from '@/component/admin/InventoryStockBadge';
 import StockAdjustForm from '@/component/admin/StockAdjustForm';
 import { requireAdmin } from '@/lib/auth/session';
@@ -8,8 +7,6 @@ import { getInventory, parseInventoryFilters } from '@/lib/admin/inventory';
 import { adjustStock } from './actions';
 
 export const dynamic = 'force-dynamic';
-
-const fieldClassName = 'rounded-lg border border-border bg-background px-3 py-2 text-sm';
 
 export default async function InventoryPage(props: PageProps<'/admin/inventory'>) {
   await requireAdmin();
@@ -22,16 +19,7 @@ export default async function InventoryPage(props: PageProps<'/admin/inventory'>
         <h1 className="text-2xl font-bold">Inventory</h1>
         <p className="mt-1 text-sm text-muted-foreground">Manage product stock. Low stock means 1–{LOW_STOCK_THRESHOLD} units.</p>
       </div>
-      <form className="flex flex-wrap items-center gap-3">
-        <input type="search" name="q" maxLength={120} defaultValue={q} placeholder="Search by product name" aria-label="Search inventory by product name" className={`${fieldClassName} w-full sm:w-64`} />
-        <select name="filter" defaultValue={filter} aria-label="Filter by stock status" className={fieldClassName}>
-          <option value="all">All</option>
-          <option value="low">Low stock</option>
-          <option value="out">Out of stock</option>
-        </select>
-        <button type="submit" className={buttonClassName({ variant: 'secondary' })}>Filter</button>
-        {filtered && <Link href="/admin/inventory" className="text-sm text-muted-foreground underline hover:text-foreground">Clear</Link>}
-      </form>
+      <InventoryFilters key={`${filter}:${q}`} q={q} filter={filter} />
       <div className="overflow-x-auto rounded-xl border border-border bg-background">
         <table className="w-full text-left text-sm">
           <thead><tr className="border-b border-border text-muted-foreground">
